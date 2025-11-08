@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Sparkles, Download, User, Mail, Phone, Linkedin, Github } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
+import { callGemini } from '../../utils/geminiClient';
 
 export default function ResumeEditor() {
   const [searchParams] = useSearchParams();
@@ -57,7 +58,6 @@ export default function ResumeEditor() {
     certificationsAwards: [{ name: '', issuer: '', date: '' }],
   });
 
-  const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
   const GEMINI_MODEL = 'gemini-2.0-flash-exp';
 
   const handleInputChange = (field, value) => {
@@ -88,11 +88,6 @@ export default function ResumeEditor() {
   const handleAIAutoFill = async () => {
     if (!selectedRole) {
       alert('Please select a role first');
-      return;
-    }
-
-    if (!GEMINI_API_KEY || GEMINI_API_KEY === 'your-gemini-api-key-here') {
-      alert('Gemini API key is not configured. Please add VITE_GEMINI_API_KEY to your .env file.');
       return;
     }
 
@@ -131,22 +126,11 @@ Make it realistic and tailored for Data Science roles.`;
         },
       };
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to generate content');
-      }
-
-      const data = await response.json();
+      const data = await callGemini({
+        model: GEMINI_MODEL,
+        contents: requestBody.contents,
+        generationConfig: requestBody.generationConfig,
+      });
       const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
       
       // Parse JSON from response

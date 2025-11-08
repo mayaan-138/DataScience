@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { mockAuth } from '../../utils/auth';
+import { callGemini } from '../../utils/geminiClient';
 
 export default function MockInterview() {
   const navigate = useNavigate();
@@ -22,7 +23,6 @@ export default function MockInterview() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
 
-  const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
   const GEMINI_MODEL = 'gemini-2.0-flash-exp';
 
   const roles = ['Data Analyst', 'ML Engineer', 'AI Developer', 'Data Scientist'];
@@ -38,10 +38,6 @@ export default function MockInterview() {
 
     setLoading(true);
     try {
-      if (!GEMINI_API_KEY || GEMINI_API_KEY === 'your-gemini-api-key-here') {
-        throw new Error('Gemini API key is not configured');
-      }
-
       const prompt = `You are an AI Interviewer for ${role} positions at ${difficulty} level.
 
 Generate exactly ${numQuestions} interview questions for this role and difficulty level.
@@ -57,26 +53,16 @@ Make questions relevant to ${role} role at ${difficulty} level. Focus on technic
 
 Return ONLY the JSON array, no additional text.`;
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: {
-              temperature: 0.7,
-              topK: 40,
-              topP: 0.95,
-              maxOutputTokens: 2048,
-            },
-          }),
-        }
-      );
-
-      if (!response.ok) throw new Error('Failed to generate questions');
-
-      const data = await response.json();
+      const data = await callGemini({
+        model: GEMINI_MODEL,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 2048,
+        },
+      });
       const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
       
       // Parse JSON
@@ -154,26 +140,16 @@ Return a JSON object with this structure:
 
 Return ONLY valid JSON, no additional text.`;
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: {
-              temperature: 0.3,
-              topK: 40,
-              topP: 0.95,
-              maxOutputTokens: 2048,
-            },
-          }),
-        }
-      );
-
-      if (!response.ok) throw new Error('Failed to generate feedback');
-
-      const data = await response.json();
+      const data = await callGemini({
+        model: GEMINI_MODEL,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.3,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 2048,
+        },
+      });
       const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
       
       let cleanResponse = aiResponse.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();

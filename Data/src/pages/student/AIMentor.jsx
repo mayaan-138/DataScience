@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Bot, Send, MessageSquare } from 'lucide-react';
+import { callGemini } from '../../utils/geminiClient';
 
 export default function AIMentor() {
   const [messages, setMessages] = useState([
@@ -12,8 +13,6 @@ export default function AIMentor() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Get Gemini API key from environment variables
-  const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
   const GEMINI_MODEL = 'gemini-2.0-flash-exp';
 
   const handleSend = async () => {
@@ -31,11 +30,6 @@ export default function AIMentor() {
     setLoading(true);
 
     try {
-      // Check if API key is configured
-      if (!GEMINI_API_KEY || GEMINI_API_KEY === 'your-gemini-api-key-here') {
-        throw new Error('Gemini API key is not configured. Please add VITE_GEMINI_API_KEY to your .env file.');
-      }
-
       // Format messages for Gemini API
       // Convert messages to Gemini format (excluding the system message)
       const conversationHistory = updatedMessages
@@ -121,23 +115,12 @@ Keep your responses SHORT, clear, educational, and engaging. Make learning Data 
       };
 
       // Make API call to Gemini 2.0 Flash
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error?.message || `API error: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      const data = await callGemini({
+        model: GEMINI_MODEL,
+        contents: requestBody.contents,
+        systemInstruction: requestBody.systemInstruction,
+        generationConfig: requestBody.generationConfig,
+      });
 
       // Extract the response text
       const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || 

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { mockAuth } from '../../utils/auth';
+import { callGemini } from '../../utils/geminiClient';
 
 export default function BehavioralPractice() {
   const navigate = useNavigate();
@@ -16,7 +17,6 @@ export default function BehavioralPractice() {
   const [feedback, setFeedback] = useState(null);
   const [showFeedback, setShowFeedback] = useState(false);
 
-  const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
   const GEMINI_MODEL = 'gemini-2.0-flash-exp';
 
   const behavioralQuestions = [
@@ -45,10 +45,6 @@ export default function BehavioralPractice() {
     setShowFeedback(false);
 
     try {
-      if (!GEMINI_API_KEY || GEMINI_API_KEY === 'your-gemini-api-key-here') {
-        throw new Error('Gemini API key is not configured');
-      }
-
       const prompt = `You are an HR Interview Coach. Analyze the following behavioral interview answer for tone, clarity, structure (STAR method), and confidence.
 
 Question: ${currentQuestion}
@@ -81,26 +77,16 @@ Return a JSON object with this structure:
 
 Return ONLY valid JSON, no additional text.`;
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: {
-              temperature: 0.3,
-              topK: 40,
-              topP: 0.95,
-              maxOutputTokens: 1024,
-            },
-          }),
-        }
-      );
-
-      if (!response.ok) throw new Error('Failed to analyze answer');
-
-      const data = await response.json();
+      const data = await callGemini({
+        model: GEMINI_MODEL,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.3,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 1024,
+        },
+      });
       const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
       
       // Parse JSON
